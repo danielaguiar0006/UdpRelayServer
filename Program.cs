@@ -7,7 +7,8 @@ public class UdpRelayServer
     public void StartRelayServer(int port)
     {
         UdpClient udpServer = new UdpClient(port);
-        udpServer.Client.Blocking = false;
+        // Temporarily not setting blocking to false to avoid exception
+        //udpServer.Client.Blocking = false;
         Console.WriteLine($"Relay server started on port: {port}");
 
         IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
