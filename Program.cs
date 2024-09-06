@@ -15,7 +15,6 @@ public class UdpRelayServer
         while (true)
         {
             byte[] receivedData = udpServer.Receive(ref clientEndPoint);
-            udpServer.Send(receivedData, receivedData.Length, clientEndPoint);
 
             string receivedMessage = System.Text.Encoding.UTF8.GetString(receivedData);
             Console.WriteLine($"Received message from: {clientEndPoint.Address} on port: {clientEndPoint.Port}");
