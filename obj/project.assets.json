@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/UdpRelayServer/UdpRelayServer.csproj",
+      "projectUniqueName": "/home/reign/dev/work/UdpRelayServer/UdpRelayServer.csproj",
       "projectName": "UdpRelayServer",
-      "projectPath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/UdpRelayServer/UdpRelayServer.csproj",
+      "projectPath": "/home/reign/dev/work/UdpRelayServer/UdpRelayServer.csproj",
       "packagesPath": "/home/reign/.nuget/packages/",
-      "outputPath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/UdpRelayServer/obj/",
+      "outputPath": "/home/reign/dev/work/UdpRelayServer/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/reign/.nuget/NuGet/NuGet.Config"
@@ -59,7 +59,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.107/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.108/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

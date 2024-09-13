@@ -1,36 +1,122 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
-public class UdpRelayServer
+public class RelayServer
 {
-    public void StartRelayServer(int port)
+    public bool m_IsRunning { get; private set; }
+
+#nullable enable
+    private UdpClient? m_UdpServer;
+    private readonly object _lock = new object();
+    public byte nextPlayerId { get; private set; } = 0;
+    public Dictionary<ushort, IPEndPoint> m_ConnectedPlayers = new Dictionary<ushort, IPEndPoint>();
+
+    public void StartRelayServer(ushort port)
     {
-        UdpClient udpServer = new UdpClient(port);
-        // Temporarily not setting blocking to false to avoid exception
-        //udpServer.Client.Blocking = false;
-        Console.WriteLine($"Relay server started on port: {port}");
-
-        IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
-        while (true)
+        Console.WriteLine("Starting relay server...");
+        try
         {
-            byte[] receivedData = udpServer.Receive(ref clientEndPoint);
-
-            string receivedMessage = System.Text.Encoding.UTF8.GetString(receivedData);
-            Console.WriteLine($"Received message from: {clientEndPoint.Address} on port: {clientEndPoint.Port}");
-            Console.WriteLine($"Received message: {receivedMessage}");
-
-            byte[] responseMessage = System.Text.Encoding.UTF8.GetBytes("Message received client! (This is server)");
-            udpServer.Send(responseMessage, responseMessage.Length, clientEndPoint);
+            m_UdpServer = new UdpClient(port);
         }
+        catch (Exception e)
+        {
+            Console.WriteLine($"[ERROR]: Failed to start relay server: {e.Message}");
+            return;
+        }
+
+        Console.WriteLine($"[INFO]: Relay server started on port: {port}");
+        m_IsRunning = true;
+        m_UdpServer.Client.Blocking = false;
+
+        Console.WriteLine("[INFO]: Will now begin listening for messages...");
+        _ = ListenForMessages(); // Start listening without blocking
+    }
+
+    private async Task ListenForMessages()
+    {
+        Debug.Assert(m_UdpServer != null, "[ERROR]: UdpServer is null, did you call StartRelayServer?");
+
+        while (m_IsRunning)
+        {
+            try
+            {
+                UdpReceiveResult result = await m_UdpServer.ReceiveAsync();
+                HandleIncomingMessage(result.Buffer, result.RemoteEndPoint);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[ERROR]: Failed to receive message: {e.Message}");
+                await Task.Delay(100); // Add a small delay to prevent tight loop on error
+            }
+        }
+    }
+
+    private void HandleIncomingMessage(byte[] data, IPEndPoint remoteEndPoint)
+    {
+        // NOTE: this shouldn't be done like this because it's completely vulnerable to DDoS like attacks
+        // TODO: implement a game connect packet instead
+        lock (_lock)
+        {
+            if (!m_ConnectedPlayers.ContainsValue(remoteEndPoint))
+            {
+                ConnectNewPlayer(remoteEndPoint);
+            }
+        }
+
+        // TODO: Process incoming data
+    }
+
+    public void ConnectNewPlayer(IPEndPoint remoteEndPoint)
+    {
+        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+        byte newPlayerId;
+        lock (_lock)
+        {
+            newPlayerId = nextPlayerId++;
+            m_ConnectedPlayers.Add(newPlayerId, remoteEndPoint);
+        }
+
+        m_UdpServer?.Send(new byte[] { newPlayerId }, 1, m_ConnectedPlayers[newPlayerId]);
+
+        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
+        m_UdpServer?.Send(welcomeMessage, welcomeMessage.Length, m_ConnectedPlayers[newPlayerId]);
+    }
+
+    public void StopRelayServer()
+    {
+        m_IsRunning = false;
+        m_UdpServer?.Close();
+        Console.WriteLine("[INFO]: Relay server stopped.");
     }
 
     public static void Main()
     {
-        int port = 13439;
+        ushort port = 13439;
+        RelayServer relayServer = new RelayServer();
 
-        Console.WriteLine("Starting relay server...");
-        UdpRelayServer relayServer = new UdpRelayServer();
         relayServer.StartRelayServer(port);
+
+        // Keep the server running until Enter is pressed
+        Console.WriteLine("Press Enter to stop the server...");
+        Console.ReadLine();
+        relayServer.StopRelayServer();
     }
+
+    //public void SendMessageToPlayer(int playerId, string message)
 }
+
+// IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+// while (true)
+// {
+//     byte[] receivedData = udpServer.Receive(ref clientEndPoint);
+//
+//     string receivedMessage = System.Text.Encoding.UTF8.GetString(receivedData);
+//     Console.WriteLine($"Received message from: {clientEndPoint.Address} on port: {clientEndPoint.Port}");
+//     Console.WriteLine($"Received message: {receivedMessage}");
+//
+//     byte[] responseMessage = System.Text.Encoding.UTF8.GetBytes("Message received client! (This is server)");
+//     udpServer.Send(responseMessage, responseMessage.Length, clientEndPoint);
+// }

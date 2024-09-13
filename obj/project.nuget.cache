@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "1d4MnQcU11JnwGXhOtcb5VJFCl62709Jc+9DuD1sSrhbl+uIzu91u79cxHmBxmHZm8V8QjgCY/0Sfg/wooOTTw==",
+  "dgSpecHash": "0iBsrkQ35P+h/Lmq7RCOm1WgNaGBn0obOI2GCF55IfEDqY9f/A2h5aN6UuNS4ljZwb8VtxnjjnCbD96WZrRPkA==",
   "success": true,
-  "projectFilePath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/UdpRelayServer/UdpRelayServer.csproj",
+  "projectFilePath": "/home/reign/dev/work/UdpRelayServer/UdpRelayServer.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }
