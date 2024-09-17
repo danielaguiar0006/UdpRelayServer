@@ -2,107 +2,28 @@
   "version": 3,
   "targets": {
     "net8.0": {
-      "Godot.SourceGenerators/4.3.0": {
-        "type": "package",
-        "build": {
-          "build/_._": {}
-        }
-      },
-      "GodotSharp/4.3.0": {
-        "type": "package",
-        "compile": {
-          "lib/net6.0/GodotSharp.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/GodotSharp.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "GodotSharpEditor/4.3.0": {
-        "type": "package",
-        "dependencies": {
-          "GodotSharp": "4.3.0"
-        },
-        "compile": {
-          "lib/net6.0/GodotSharpEditor.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/GodotSharpEditor.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "godotsharp-dungeon-doom-souls/1.0.0": {
+      "dds-shared-lib/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
-        "dependencies": {
-          "Godot.SourceGenerators": "4.3.0",
-          "GodotSharp": "4.3.0",
-          "GodotSharpEditor": "4.3.0"
-        },
         "compile": {
-          "bin/placeholder/godotsharp-dungeon-doom-souls.dll": {}
+          "bin/placeholder/dds-shared-lib.dll": {}
         },
         "runtime": {
-          "bin/placeholder/godotsharp-dungeon-doom-souls.dll": {}
+          "bin/placeholder/dds-shared-lib.dll": {}
         }
       }
     }
   },
   "libraries": {
-    "Godot.SourceGenerators/4.3.0": {
-      "sha512": "fLDNOAo/kpL1JtGXP6b2M48dobzb5YmKSRLXKDt+td8qegu0Ao3H25avoySVmrb52d7zpe8yvgMwba7QMhqnqQ==",
-      "type": "package",
-      "path": "godot.sourcegenerators/4.3.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "analyzers/dotnet/cs/Godot.SourceGenerators.dll",
-        "build/Godot.SourceGenerators.props",
-        "godot.sourcegenerators.4.3.0.nupkg.sha512",
-        "godot.sourcegenerators.nuspec"
-      ]
-    },
-    "GodotSharp/4.3.0": {
-      "sha512": "mEwRmNIG2k/yPfkFencEkNVXpHCa+uETHkIQcq0MxcsfwJQZ4HueFU5Q9CYDIdd5YrRPqjwuyxbsuD6Je8lfdQ==",
-      "type": "package",
-      "path": "godotsharp/4.3.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "godotsharp.4.3.0.nupkg.sha512",
-        "godotsharp.nuspec",
-        "lib/net6.0/GodotSharp.dll",
-        "lib/net6.0/GodotSharp.xml"
-      ]
-    },
-    "GodotSharpEditor/4.3.0": {
-      "sha512": "r7A3lszHS9/gIWoOb7w+MNtEjrD/NRX+9ACHq01GD2+lctu6eHsmlSTA0Ah1bjJDKs9rDZeSq+42zwXvtBsPzQ==",
-      "type": "package",
-      "path": "godotsharpeditor/4.3.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "godotsharpeditor.4.3.0.nupkg.sha512",
-        "godotsharpeditor.nuspec",
-        "lib/net6.0/GodotSharpEditor.dll",
-        "lib/net6.0/GodotSharpEditor.xml"
-      ]
-    },
-    "godotsharp-dungeon-doom-souls/1.0.0": {
+    "dds-shared-lib/1.0.0": {
       "type": "project",
-      "path": "../../../../godotsharp-dungeon-doom-souls.csproj",
-      "msbuildProject": "../../../../godotsharp-dungeon-doom-souls.csproj"
+      "path": "SharedLib/dds-shared-lib/dds-shared-lib.csproj",
+      "msbuildProject": "SharedLib/dds-shared-lib/dds-shared-lib.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
-      "godotsharp-dungeon-doom-souls >= 1.0.0"
+      "dds-shared-lib >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -111,11 +32,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/server/UdpRelayServer/UdpRelayServer.csproj",
+      "projectUniqueName": "/home/reign/dev/work/UdpRelayServer/UdpRelayServer.csproj",
       "projectName": "UdpRelayServer",
-      "projectPath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/server/UdpRelayServer/UdpRelayServer.csproj",
+      "projectPath": "/home/reign/dev/work/UdpRelayServer/UdpRelayServer.csproj",
       "packagesPath": "/home/reign/.nuget/packages/",
-      "outputPath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/scripts/networking/server/UdpRelayServer/obj/",
+      "outputPath": "/home/reign/dev/work/UdpRelayServer/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/reign/.nuget/NuGet/NuGet.Config"
@@ -130,8 +51,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "/home/reign/dev/work/godotsharp-dungeon-doom-souls/godotsharp-dungeon-doom-souls.csproj": {
-              "projectPath": "/home/reign/dev/work/godotsharp-dungeon-doom-souls/godotsharp-dungeon-doom-souls.csproj"
+            "/home/reign/dev/work/UdpRelayServer/SharedLib/dds-shared-lib/dds-shared-lib.csproj": {
+              "projectPath": "/home/reign/dev/work/UdpRelayServer/SharedLib/dds-shared-lib/dds-shared-lib.csproj"
             }
           }
         }
