@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using Game.Networking;
 using System.Collections.Generic;
 using System.IO;
 using dds_shared_lib;
@@ -66,7 +65,7 @@ public class RelayServer
 
     private async Task HandleIncomingMessage(byte[] data, IPEndPoint remoteEndPoint)
     {
-        Packet? packet = PacketManager.GetPacketFromData(data);
+        Packet? packet = PacketManager.GetPacketFromData(data, PROTOCOL_ID);
         if (packet == null)
         {  // NOTE: A wrong protocol ID will cause this to fail
             Console.WriteLine($"[ERROR]: Failed to get packet from data: {data}");
@@ -136,7 +135,7 @@ public class RelayServer
             connectPacket.m_Data = ms.ToArray();
         }
 
-        await PacketManager.SendPacket(connectPacket, m_UdpServer, remoteEndPoint);
+        await PacketManager.SendPacket(connectPacket, m_UdpServer, PROTOCOL_ID, remoteEndPoint);
     }
 
     public void StopRelayServer()

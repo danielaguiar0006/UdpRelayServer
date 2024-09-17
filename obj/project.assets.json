@@ -17,8 +17,8 @@
   "libraries": {
     "dds-shared-lib/1.0.0": {
       "type": "project",
-      "path": "SharedLib/dds-shared-lib/dds-shared-lib.csproj",
-      "msbuildProject": "SharedLib/dds-shared-lib/dds-shared-lib.csproj"
+      "path": "../dds-shared-lib/dds-shared-lib.csproj",
+      "msbuildProject": "../dds-shared-lib/dds-shared-lib.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -51,8 +51,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "/home/reign/dev/work/UdpRelayServer/SharedLib/dds-shared-lib/dds-shared-lib.csproj": {
-              "projectPath": "/home/reign/dev/work/UdpRelayServer/SharedLib/dds-shared-lib/dds-shared-lib.csproj"
+            "/home/reign/dev/work/dds-shared-lib/dds-shared-lib.csproj": {
+              "projectPath": "/home/reign/dev/work/dds-shared-lib/dds-shared-lib.csproj"
             }
           }
         }
