@@ -117,8 +117,7 @@ public class RelayServer
         }
 
         byte newPlayerId;
-        //byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
-        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"Server!");
+        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
         lock (_lock)
         {
             newPlayerId = nextPlayerId++;
