@@ -4,6 +4,9 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Game.Networking;
+using System.Collections.Generic;
+using System.IO;
+using dds_shared_lib;
 
 public class RelayServer
 {
@@ -63,34 +66,77 @@ public class RelayServer
 
     private async Task HandleIncomingMessage(byte[] data, IPEndPoint remoteEndPoint)
     {
-        // NOTE: this shouldn't be done like this because it's completely vulnerable to DDoS like attacks
-        // TODO: implement a game connect packet instead
-
-        if (!m_ConnectedPlayers.ContainsValue(remoteEndPoint))
-        {
-            await ConnectNewPlayer(remoteEndPoint);
+        Packet? packet = PacketManager.GetPacketFromData(data);
+        if (packet == null)
+        {  // NOTE: A wrong protocol ID will cause this to fail
+            Console.WriteLine($"[ERROR]: Failed to get packet from data: {data}");
+            return;
         }
+
+        switch (packet.m_PacketType)
+        {
+            case Packet.PacketType.GamePacket:
+                await HandleGamePacket(packet as GamePacket, remoteEndPoint);
+                break;
+            // TODO:
+            // case Packet.PacketType.PlayerPacket:
+            //     await HandlePlayerPacket(packet as PlayerPacket, remoteEndPoint);
+            //     break;
+            default:
+                Console.WriteLine($"[ERROR]: Unknown packet type: {packet.m_PacketType}");
+                break;
+        }
+
         // TODO: Process incoming data
+    }
+
+    private async Task HandleGamePacket(GamePacket packet, IPEndPoint remoteEndPoint)
+    {
+        Console.WriteLine($"[INFO]: Received game packet: {packet.m_OpCode.ToString()}");
+
+        switch (packet.m_OpCode)
+        {
+            case GamePacket.OpCode.PlayerJoin:
+                await ConnectNewPlayer(remoteEndPoint);
+                break;
+            // TODO:
+            // case GamePacket.OpCode.PlayerLeave:
+            //     await DisconnectPlayer(remoteEndPoint);
+            //     break;
+            default:
+                Console.WriteLine($"[ERROR]: Unknown game packet op code: {packet.m_OpCode}");
+                break;
+        }
     }
 
     public async Task ConnectNewPlayer(IPEndPoint remoteEndPoint)
     {
-        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+        if (m_ConnectedPlayers.ContainsValue(remoteEndPoint))
+        {
+            Console.WriteLine($"[ERROR]: Player already connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+            return;
+        }
+
         byte newPlayerId;
+        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
         lock (_lock)
         {
             newPlayerId = nextPlayerId++;
             m_ConnectedPlayers.Add(newPlayerId, remoteEndPoint);
         }
 
-        // TODO:
-        // m_UdpServer?.Send(new byte[] { newPlayerId }, 1, m_ConnectedPlayers[newPlayerId]);
-        // GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin);
-        // connectPacket.m_Data = new byte[] { newPlayerId };
-        // await SendPacket(m_UdpServer, connectPacket);
+        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {newPlayerId})");
+        GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
 
-        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
-        await m_UdpServer?.SendAsync(welcomeMessage, welcomeMessage.Length, m_ConnectedPlayers[newPlayerId]);
+        // Add player ID + welcome message to the packet data
+        using (MemoryStream ms = new MemoryStream())
+        {
+            ms.WriteByte(newPlayerId);
+            ms.Write(welcomeMessage, 0, welcomeMessage.Length);
+            connectPacket.m_Data = ms.ToArray();
+        }
+
+        await PacketManager.SendPacket(connectPacket, m_UdpServer, remoteEndPoint);
     }
 
     public void StopRelayServer()
@@ -117,17 +163,6 @@ public class RelayServer
 
     // TODO: Implement a shared packet handler for all clients and servers
     // - This should include SendPacket and GetPacketFromData methods
-}
 
-// IPEndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
-// while (true)
-// {
-//     byte[] receivedData = udpServer.Receive(ref clientEndPoint);
-//
-//     string receivedMessage = System.Text.Encoding.UTF8.GetString(receivedData);
-//     Console.WriteLine($"Received message from: {clientEndPoint.Address} on port: {clientEndPoint.Port}");
-//     Console.WriteLine($"Received message: {receivedMessage}");
-//
-//     byte[] responseMessage = System.Text.Encoding.UTF8.GetBytes("Message received client! (This is server)");
-//     udpServer.Send(responseMessage, responseMessage.Length, clientEndPoint);
-// }
+
+}
