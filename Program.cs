@@ -117,21 +117,22 @@ public class RelayServer
         }
 
         byte newPlayerId;
-        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
+        //byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
+        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"Server!");
         lock (_lock)
         {
             newPlayerId = nextPlayerId++;
             m_ConnectedPlayers.Add(newPlayerId, remoteEndPoint);
         }
 
-        //Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {newPlayerId})");
+        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {newPlayerId})");
         GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
 
         // Add player ID + welcome message to the packet data
         using (MemoryStream ms = new MemoryStream())
         {
             ms.WriteByte(newPlayerId);
-            //ms.Write(welcomeMessage, 0, welcomeMessage.Length);
+            ms.Write(welcomeMessage, 0, welcomeMessage.Length);
             connectPacket.m_Data = ms.ToArray();
         }
 
