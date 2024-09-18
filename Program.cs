@@ -7,10 +7,11 @@ using dds_shared_lib;
 public class RelayServer
 {
     public bool m_IsRunning { get; private set; }
-    public byte nextPlayerId { get; private set; } = 0;
+    public ushort nextPlayerId { get; private set; } = 0;
     public Dictionary<ushort, IPEndPoint> m_ConnectedPlayers = new Dictionary<ushort, IPEndPoint>();
 
-    private const uint PROTOCOL_ID = 13439; // SET CUSTOM PROTOCOL ID HERE
+    private const ushort HOST_PLAYER_ID = 0; // The player ID of the host
+    private const uint PROTOCOL_ID = 13439;  // SET CUSTOM PROTOCOL ID HERE
     private readonly object _lock = new object();
 #nullable enable
     private UdpClient? m_UdpServer;
@@ -110,7 +111,7 @@ public class RelayServer
             return;
         }
 
-        byte newPlayerId;
+        ushort newPlayerId;
         byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
         lock (_lock)
         {
@@ -124,7 +125,8 @@ public class RelayServer
         // Add player ID + welcome message to the packet data
         using (MemoryStream ms = new MemoryStream())
         {
-            ms.WriteByte(newPlayerId);
+            byte[] newPlayerIdBytes = BitConverter.GetBytes(newPlayerId);
+            ms.Write(newPlayerIdBytes, 0, newPlayerIdBytes.Length);
             ms.Write(welcomeMessage, 0, welcomeMessage.Length);
             connectPacket.m_Data = ms.ToArray();
         }
