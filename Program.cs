@@ -55,6 +55,11 @@ public class RelayServer
                     return;
                 }
 
+#if DEBUG
+                Console.WriteLine($"[DEBUG]: Received packet: {packet.m_PacketType.ToString()}");
+                Console.WriteLine($"[DEBUG]: Received packet data: {packet.m_Data.Length} bytes");
+#endif
+
                 switch (packet.m_PacketType)
                 {
                     case Packet.PacketType.GamePacket:
@@ -84,10 +89,6 @@ public class RelayServer
 
     private async Task HandleGamePacket(GamePacket packet, IPEndPoint remoteEndPoint)
     {
-#if DEBUG
-        Console.WriteLine($"[DEBUG]: Received game packet: {packet.m_OpCode.ToString()}");
-        Console.WriteLine($"[DEBUG]: Received game packet data: {packet.m_Data.Length} bytes");
-#endif
 
         switch (packet.m_OpCode)
         {
@@ -144,20 +145,25 @@ public class RelayServer
         }
 
         ushort playerId = m_ConnectedPlayers.FirstOrDefault(x => x.Value == remoteEndPoint).Key;
-        Console.WriteLine($"[INFO]: Player disconnected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {playerId})");
-
         lock (_lock)
         {
             m_ConnectedPlayers.Remove(playerId);
         }
+        Console.WriteLine($"[INFO]: Player disconnected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {playerId})");
 
-        Console.WriteLine("[INFO]: Current Connected players:");
-        foreach (var player in m_ConnectedPlayers)
+        if (m_ConnectedPlayers.Count == 0)
         {
-            Console.WriteLine($"[INFO]: Connected player: {player.Value.Address}:{player.Value.Port} (Player ID: {player.Key})");
+            Console.WriteLine("[INFO]: No players are connected, stopping the server...");
+            StopRelayServer();
         }
-
-        // TODO: if no players are connected, stop the server/game
+        else
+        {
+            Console.WriteLine("[INFO]: Current Connected players:");
+            foreach (var player in m_ConnectedPlayers)
+            {
+                Console.WriteLine($"[INFO]: Connected player: {player.Value.Address}:{player.Value.Port} (Player ID: {player.Key})");
+            }
+        }
     }
 
     public void StopRelayServer()
