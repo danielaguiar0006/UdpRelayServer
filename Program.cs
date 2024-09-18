@@ -95,7 +95,7 @@ public class RelayServer
                 await ConnectNewPlayer(remoteEndPoint);
                 break;
             case GamePacket.OpCode.PlayerLeave:
-                // await DisconnectPlayer(remoteEndPoint);
+                DisconnectPlayer(remoteEndPoint);
                 break;
             default:
                 Console.WriteLine($"[ERROR]: Unknown game packet op code: {packet.m_OpCode}");
@@ -132,6 +132,32 @@ public class RelayServer
         }
 
         await PacketManager.SendPacket(connectPacket, m_UdpServer, PROTOCOL_ID, remoteEndPoint);
+    }
+
+    // This does not send back a disconnect packet
+    private void DisconnectPlayer(IPEndPoint remoteEndPoint)
+    {
+        if (!m_ConnectedPlayers.ContainsValue(remoteEndPoint))
+        {
+            Console.WriteLine($"[ERROR]: Player not connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+            return;
+        }
+
+        ushort playerId = m_ConnectedPlayers.FirstOrDefault(x => x.Value == remoteEndPoint).Key;
+        Console.WriteLine($"[INFO]: Player disconnected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {playerId})");
+
+        lock (_lock)
+        {
+            m_ConnectedPlayers.Remove(playerId);
+        }
+
+        Console.WriteLine("[INFO]: Current Connected players:");
+        foreach (var player in m_ConnectedPlayers)
+        {
+            Console.WriteLine($"[INFO]: Connected player: {player.Value.Address}:{player.Value.Port} (Player ID: {player.Key})");
+        }
+
+        // TODO: if no players are connected, stop the server/game
     }
 
     public void StopRelayServer()
