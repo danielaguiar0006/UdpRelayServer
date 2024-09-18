@@ -1,11 +1,8 @@
-using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Collections.Generic;
-using System.IO;
 using dds_shared_lib;
+
 
 public class RelayServer
 {
@@ -17,6 +14,7 @@ public class RelayServer
     private readonly object _lock = new object();
 #nullable enable
     private UdpClient? m_UdpServer;
+
 
     public void StartRelayServer(ushort port)
     {
@@ -47,8 +45,28 @@ public class RelayServer
         {
             try
             {
+                // Receive packet and return if null
                 UdpReceiveResult result = await m_UdpServer.ReceiveAsync();
-                await HandleIncomingMessage(result.Buffer, result.RemoteEndPoint);
+                Packet? packet = PacketManager.GetPacketFromData(result.Buffer, PROTOCOL_ID);
+                if (packet == null)
+                {  // NOTE: A wrong protocol ID will cause this to fail
+                    Console.WriteLine($"[ERROR]: Failed to get packet from data: {result.Buffer}");
+                    return;
+                }
+
+                switch (packet.m_PacketType)
+                {
+                    case Packet.PacketType.GamePacket:
+                        await HandleGamePacket(packet as GamePacket, result.RemoteEndPoint);
+                        break;
+                    // TODO:
+                    // case Packet.PacketType.PlayerPacket:
+                    //     await HandlePlayerPacket(packet as PlayerPacket, remoteEndPoint);
+                    //     break;
+                    default:
+                        Console.WriteLine($"[ERROR]: Unknown packet type: {packet.m_PacketType}");
+                        break;
+                }
             }
             catch (SocketException e)
             {
@@ -63,52 +81,28 @@ public class RelayServer
         }
     }
 
-    private async Task HandleIncomingMessage(byte[] data, IPEndPoint remoteEndPoint)
-    {
-        Packet? packet = PacketManager.GetPacketFromData(data, PROTOCOL_ID);
-        if (packet == null)
-        {  // NOTE: A wrong protocol ID will cause this to fail
-            Console.WriteLine($"[ERROR]: Failed to get packet from data: {data}");
-            return;
-        }
-
-        switch (packet.m_PacketType)
-        {
-            case Packet.PacketType.GamePacket:
-                await HandleGamePacket(packet as GamePacket, remoteEndPoint);
-                break;
-            // TODO:
-            // case Packet.PacketType.PlayerPacket:
-            //     await HandlePlayerPacket(packet as PlayerPacket, remoteEndPoint);
-            //     break;
-            default:
-                Console.WriteLine($"[ERROR]: Unknown packet type: {packet.m_PacketType}");
-                break;
-        }
-
-        // TODO: Process incoming data
-    }
-
     private async Task HandleGamePacket(GamePacket packet, IPEndPoint remoteEndPoint)
     {
-        Console.WriteLine($"[INFO]: Received game packet: {packet.m_OpCode.ToString()}");
+#if DEBUG
+        Console.WriteLine($"[DEBUG]: Received game packet: {packet.m_OpCode.ToString()}");
+        Console.WriteLine($"[DEBUG]: Received game packet data: {packet.m_Data.Length} bytes");
+#endif
 
         switch (packet.m_OpCode)
         {
             case GamePacket.OpCode.PlayerJoin:
                 await ConnectNewPlayer(remoteEndPoint);
                 break;
-            // TODO:
-            // case GamePacket.OpCode.PlayerLeave:
-            //     await DisconnectPlayer(remoteEndPoint);
-            //     break;
+            case GamePacket.OpCode.PlayerLeave:
+                // await DisconnectPlayer(remoteEndPoint);
+                break;
             default:
                 Console.WriteLine($"[ERROR]: Unknown game packet op code: {packet.m_OpCode}");
                 break;
         }
     }
 
-    public async Task ConnectNewPlayer(IPEndPoint remoteEndPoint)
+    private async Task ConnectNewPlayer(IPEndPoint remoteEndPoint)
     {
         if (m_ConnectedPlayers.ContainsValue(remoteEndPoint))
         {
@@ -159,9 +153,4 @@ public class RelayServer
     }
 
     //public void SendMessageToPlayer(int playerId, string message)
-
-    // TODO: Implement a shared packet handler for all clients and servers
-    // - This should include SendPacket and GetPacketFromData methods
-
-
 }
