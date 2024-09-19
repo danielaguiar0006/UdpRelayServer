@@ -55,7 +55,7 @@ public class RelayServer
                 if (packet == null)
                 {  // NOTE: A wrong protocol ID will cause this to fail
                     Console.WriteLine($"[ERROR]: Failed to get packet from data: {result.Buffer}");
-                    return;
+                    continue;
                 }
 
 #if DEBUG
@@ -194,41 +194,49 @@ public class RelayServer
 
     private async Task MonitorPlayerTimeouts(TimeSpan timeoutInterval)
     {
-        while (m_IsRunning)
+        try
         {
-            await Task.Delay(1000); // Check every second
-            List<string> timedOutPlayers = new List<string>();
-
-            lock (_lock)
+            while (m_IsRunning)
             {
-                var now = DateTime.UtcNow;
+                await Task.Delay(1000); // Check every second
+                List<string> timedOutPlayers = new List<string>();
 
-                foreach (var playerId in m_ConnectedPlayers.Keys)
+                lock (_lock)
                 {
-                    if (now - m_PlayerLastActivity[playerId] >= timeoutInterval)
+                    var now = DateTime.UtcNow;
+
+                    foreach (var playerId in m_ConnectedPlayers.Keys)
                     {
-                        timedOutPlayers.Add(playerId);
+                        if (now - m_PlayerLastActivity[playerId] >= timeoutInterval)
+                        {
+                            timedOutPlayers.Add(playerId);
+                        }
                     }
+
                 }
 
+                foreach (var playerId in timedOutPlayers)
+                {
+                    Console.WriteLine($"[INFO]: Player {playerId} timed out, disconnecting...");
+                    DisconnectPlayer(playerId);
+                }
             }
-
-            foreach (var playerId in timedOutPlayers)
-            {
-                Console.WriteLine($"[INFO]: Player {playerId} timed out, disconnecting...");
-                DisconnectPlayer(playerId);
-            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"[ERROR]: Failed to monitor player timeouts: {e.Message}");
         }
     }
 
     // Input: IPEndPoint
     // Output: Hashed ID as a string
-    private string GetHashedId(IPEndPoint endPoint)
+    private string GetHashedId(IPEndPoint endPoint) // TODO: This is called a lot, so we might want to cache the results...
     {
         using (var sha256 = System.Security.Cryptography.SHA256.Create())
         {
             byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(endPoint.ToString()));
-            return Convert.ToBase64String(hashBytes);
+            string base64Hash = Convert.ToBase64String(hashBytes);
+            return base64Hash.Substring(0, 8);
         }
     }
 
