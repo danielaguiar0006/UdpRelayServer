@@ -4,13 +4,16 @@ using System.Diagnostics;
 using dds_shared_lib;
 
 
+namespace UdpRelayServer;
+using PlayerId = System.UInt16;
+
 public class RelayServer
 {
     public bool m_IsRunning { get; private set; }
-    public ushort nextPlayerId { get; private set; } = 0;
-    public Dictionary<ushort, IPEndPoint> m_ConnectedPlayers = new Dictionary<ushort, IPEndPoint>();
+    public PlayerId nextPlayerId { get; private set; } = 0;
+    public Dictionary<PlayerId, IPEndPoint> m_ConnectedPlayers = new Dictionary<PlayerId, IPEndPoint>();
 
-    private const ushort HOST_PLAYER_ID = 0; // The player ID of the host
+    private const PlayerId HOST_PLAYER_ID = 0; // The player ID of the host
     private const uint MAX_PLAYERS = 4;
     private const uint PROTOCOL_ID = 13439;  // SET CUSTOM PROTOCOL ID HERE
     private readonly object _lock = new object();
@@ -37,6 +40,7 @@ public class RelayServer
 
         Console.WriteLine("[INFO]: Will now begin listening for messages...");
         _ = ListenForMessages(); // Start listening without blocking
+        _ = MonitorPlayerTimeouts(TimeSpan.FromSeconds(10)); // Start monitoring player timeouts
     }
 
     private async Task ListenForMessages()
@@ -118,7 +122,7 @@ public class RelayServer
             return;
         }
 
-        ushort newPlayerId;
+        PlayerId newPlayerId;
         byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
         lock (_lock)
         {
@@ -150,7 +154,7 @@ public class RelayServer
             return;
         }
 
-        ushort playerId = m_ConnectedPlayers.FirstOrDefault(x => x.Value == remoteEndPoint).Key;
+        PlayerId playerId = m_ConnectedPlayers.FirstOrDefault(x => x.Value == remoteEndPoint).Key;
         lock (_lock)
         {
             m_ConnectedPlayers.Remove(playerId);
@@ -168,6 +172,53 @@ public class RelayServer
             foreach (var player in m_ConnectedPlayers)
             {
                 Console.WriteLine($"[INFO]: Connected player: {player.Value.Address}:{player.Value.Port} (Player ID: {player.Key})");
+            }
+        }
+    }
+
+    private void DisconnectPlayer(PlayerId playerId)
+    {
+        DisconnectPlayer(m_ConnectedPlayers[playerId]);
+    }
+
+    private async Task MonitorPlayerTimeouts(TimeSpan timeoutInterval)
+    {
+        Dictionary<PlayerId, DateTime> playerLastActivity = new Dictionary<PlayerId, DateTime>();
+
+        while (m_IsRunning)
+        {
+            await Task.Delay(1000); // Check every second
+            List<PlayerId> timedOutPlayerIds = new List<PlayerId>();
+
+            if (m_ConnectedPlayers.Count == 0)
+            {
+                return;
+            }
+
+
+            lock (_lock)
+            {
+                var now = DateTime.Now;
+
+                foreach (var playerID in m_ConnectedPlayers.Keys)
+                {
+                    if (!playerLastActivity.ContainsKey(playerID))
+                    {
+                        playerLastActivity.Add(playerID, now);
+                        continue;
+                    }
+
+                    if (now - playerLastActivity[playerID] >= timeoutInterval)
+                    {
+                        timedOutPlayerIds.Add(playerID);
+                    }
+                }
+
+                foreach (var playerID in timedOutPlayerIds)
+                {
+                    Console.WriteLine($"[INFO]: Player {playerID} timed out, disconnecting...");
+                    DisconnectPlayer(playerID);
+                }
             }
         }
     }
