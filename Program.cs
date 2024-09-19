@@ -5,18 +5,13 @@ using dds_shared_lib;
 
 
 namespace UdpRelayServer;
-using PlayerId = System.UInt16;
 
 public class RelayServer
 {
     public bool m_IsRunning { get; private set; }
-    public PlayerId nextPlayerId { get; private set; } = 0;
-    public Dictionary<PlayerId, IPEndPoint> m_ConnectedPlayers = new Dictionary<PlayerId, IPEndPoint>();
-    public Dictionary<PlayerId, DateTime> m_PlayerLastActivity = new Dictionary<PlayerId, DateTime>();
+    public List<IPEndPoint> m_ConnectedPlayers = new List<IPEndPoint>(); // IPEndPoints are used as player IDs
+    public Dictionary<IPEndPoint, DateTime> m_PlayerLastActivity = new Dictionary<IPEndPoint, DateTime>();
 
-
-    private const PlayerId HOST_PLAYER_ID = 0; // The player ID of the host
-    private const PlayerId SERVER_ID = 69;
     private const uint MAX_PLAYERS = 4;
     private const uint PROTOCOL_ID = 13439;  // SET CUSTOM PROTOCOL ID HERE
     private readonly object _lock = new object();
@@ -67,9 +62,10 @@ public class RelayServer
                 Console.WriteLine($"[DEBUG]: Received packet: {packet.m_PacketType.ToString()}");
                 Console.WriteLine($"[DEBUG]: Received packet data: {packet.m_Data.Length} bytes");
 #endif
-                if (m_PlayerLastActivity.ContainsKey(packet.m_SenderId))
+                // Update the last activity time for the sender
+                if (m_PlayerLastActivity.ContainsKey(result.RemoteEndPoint))
                 {
-                    m_PlayerLastActivity[packet.m_SenderId] = DateTime.Now; // Update the last activity time
+                    m_PlayerLastActivity[result.RemoteEndPoint] = DateTime.Now;
                 }
 
                 switch (packet.m_PacketType)
@@ -118,7 +114,7 @@ public class RelayServer
 
     private async Task ConnectNewPlayer(IPEndPoint remoteEndPoint)
     {
-        if (m_ConnectedPlayers.ContainsValue(remoteEndPoint))
+        if (m_ConnectedPlayers.Contains(remoteEndPoint))
         {
             Console.WriteLine($"[ERROR]: Player already connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
             return;
@@ -129,23 +125,19 @@ public class RelayServer
             return;
         }
 
-        PlayerId newPlayerId;
-        byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
         lock (_lock)
         {
-            newPlayerId = nextPlayerId++;
-            m_ConnectedPlayers.Add(newPlayerId, remoteEndPoint);
-            m_PlayerLastActivity.Add(newPlayerId, DateTime.Now);
+            m_ConnectedPlayers.Add(remoteEndPoint);
+            m_PlayerLastActivity.Add(remoteEndPoint, DateTime.Now);
         }
 
-        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {newPlayerId})");
-        GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin, SERVER_ID); // Construct a new game packet to return
+        Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+        GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
 
         // Add player ID + welcome message to the packet data
         using (MemoryStream ms = new MemoryStream())
         {
-            byte[] newPlayerIdBytes = BitConverter.GetBytes(newPlayerId);
-            ms.Write(newPlayerIdBytes, 0, newPlayerIdBytes.Length);
+            byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
             ms.Write(welcomeMessage, 0, welcomeMessage.Length);
             connectPacket.m_Data = ms.ToArray();
         }
@@ -156,19 +148,18 @@ public class RelayServer
     // This does not send back a disconnect packet
     private void DisconnectPlayer(IPEndPoint remoteEndPoint)
     {
-        if (!m_ConnectedPlayers.ContainsValue(remoteEndPoint))
+        if (!m_ConnectedPlayers.Contains(remoteEndPoint))
         {
             Console.WriteLine($"[ERROR]: Player not connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
             return;
         }
 
-        PlayerId playerId = m_ConnectedPlayers.FirstOrDefault(x => x.Value == remoteEndPoint).Key;
         lock (_lock)
         {
-            m_ConnectedPlayers.Remove(playerId);
-            m_PlayerLastActivity.Remove(playerId);
+            m_ConnectedPlayers.Remove(remoteEndPoint);
+            m_PlayerLastActivity.Remove(remoteEndPoint);
         }
-        Console.WriteLine($"[INFO]: Player disconnected: {remoteEndPoint.Address}:{remoteEndPoint.Port} (Player ID: {playerId})");
+        Console.WriteLine($"[INFO]: Player disconnected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
 
         if (m_ConnectedPlayers.Count == 0)
         {
@@ -177,17 +168,12 @@ public class RelayServer
         }
         else
         {
-            Console.WriteLine("[INFO]: Current Connected players:");
-            foreach (var player in m_ConnectedPlayers)
+            Console.WriteLine("[INFO]: Remaining Connected players:");
+            foreach (var playerEndPoint in m_ConnectedPlayers)
             {
-                Console.WriteLine($"[INFO]: Connected player: {player.Value.Address}:{player.Value.Port} (Player ID: {player.Key})");
+                Console.WriteLine($"[INFO]: Connected player: {playerEndPoint.Address}:{playerEndPoint.Port}");
             }
         }
-    }
-
-    private void DisconnectPlayer(PlayerId playerId)
-    {
-        DisconnectPlayer(m_ConnectedPlayers[playerId]);
     }
 
     private async Task MonitorPlayerTimeouts(TimeSpan timeoutInterval)
@@ -195,7 +181,7 @@ public class RelayServer
         while (m_IsRunning)
         {
             await Task.Delay(1000); // Check every second
-            List<PlayerId> timedOutPlayerIds = new List<PlayerId>();
+            List<IPEndPoint> timedOutPlayers = new List<IPEndPoint>();
 
             if (m_ConnectedPlayers.Count == 0)
             {
@@ -207,18 +193,18 @@ public class RelayServer
             {
                 var now = DateTime.Now;
 
-                foreach (var playerID in m_ConnectedPlayers.Keys)
+                foreach (IPEndPoint playerEndPoint in m_ConnectedPlayers)
                 {
-                    if (now - m_PlayerLastActivity[playerID] >= timeoutInterval)
+                    if (now - m_PlayerLastActivity[playerEndPoint] >= timeoutInterval)
                     {
-                        timedOutPlayerIds.Add(playerID);
+                        timedOutPlayers.Add(playerEndPoint);
                     }
                 }
 
-                foreach (var playerID in timedOutPlayerIds)
+                foreach (IPEndPoint playerEndPoint in timedOutPlayers)
                 {
-                    Console.WriteLine($"[INFO]: Player {playerID} timed out, disconnecting...");
-                    DisconnectPlayer(playerID);
+                    Console.WriteLine($"[INFO]: Player {playerEndPoint.ToString()} timed out, disconnecting...");
+                    DisconnectPlayer(playerEndPoint);
                 }
             }
         }
