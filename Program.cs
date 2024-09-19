@@ -11,6 +11,7 @@ public class RelayServer
     public Dictionary<ushort, IPEndPoint> m_ConnectedPlayers = new Dictionary<ushort, IPEndPoint>();
 
     private const ushort HOST_PLAYER_ID = 0; // The player ID of the host
+    private const uint MAX_PLAYERS = 4;
     private const uint PROTOCOL_ID = 13439;  // SET CUSTOM PROTOCOL ID HERE
     private readonly object _lock = new object();
 #nullable enable
@@ -109,6 +110,11 @@ public class RelayServer
         if (m_ConnectedPlayers.ContainsValue(remoteEndPoint))
         {
             Console.WriteLine($"[ERROR]: Player already connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
+            return;
+        }
+        if (m_ConnectedPlayers.Count >= MAX_PLAYERS)
+        {
+            Console.WriteLine($"[ERROR]: Maximum number of players reached: {MAX_PLAYERS}");
             return;
         }
 
