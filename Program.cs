@@ -145,9 +145,7 @@ public class RelayServer
             byte[] playerIdBytes = System.Text.Encoding.UTF8.GetBytes(playerId);
             byte[] playerIdLengthBytes = BitConverter.GetBytes(playerIdBytes.Length);
             byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
-            byte[] totalLengthBytes = BitConverter.GetBytes(welcomeMessage.Length + playerIdLengthBytes.Length + playerIdBytes.Length);
 
-            ms.Write(totalLengthBytes, 0, totalLengthBytes.Length);
             ms.Write(playerIdLengthBytes, 0, playerIdLengthBytes.Length);
             ms.Write(playerIdBytes, 0, playerIdBytes.Length);
             ms.Write(welcomeMessage, 0, welcomeMessage.Length);
