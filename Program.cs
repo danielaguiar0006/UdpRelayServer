@@ -9,8 +9,8 @@ namespace UdpRelayServer;
 public class RelayServer
 {
     public bool m_IsRunning { get; private set; }
-    public Dictionary<string, IPEndPoint> m_ConnectedPlayers = new Dictionary<string, IPEndPoint>(); // Hashed IDs are used as player IDs - NOTE: IPEndPoints themselves can cause equality issues
-    public Dictionary<string, DateTime> m_PlayerLastActivity = new Dictionary<string, DateTime>();
+    public Dictionary<PlayerID, IPEndPoint> m_ConnectedPlayers = new Dictionary<PlayerID, IPEndPoint>(); // Hashed IDs are used as player IDs - NOTE: IPEndPoints themselves can cause equality issues
+    public Dictionary<PlayerID, DateTime> m_PlayerLastActivity = new Dictionary<PlayerID, DateTime>();
 
     private const uint MAX_PLAYERS = 4;
     private const uint PROTOCOL_ID = 13439;  // SET CUSTOM PROTOCOL ID HERE
@@ -50,21 +50,21 @@ public class RelayServer
             try
             {
                 // Receive packet and return if null
-                UdpReceiveResult result = await m_UdpServer.ReceiveAsync();
-                Packet? packet = PacketManager.GetPacketFromData(result.Buffer, PROTOCOL_ID);
-                if (packet == null)
+                UdpReceiveResult receiveResult = await m_UdpServer.ReceiveAsync();
+                Packet? receivedPacket = PacketManager.GetPacketFromData(receiveResult.Buffer, PROTOCOL_ID);
+                if (receivedPacket == null)
                 {  // NOTE: A wrong protocol ID will cause this to fail
-                    Console.WriteLine($"[ERROR]: Failed to get packet from data: {result.Buffer}");
+                    Console.WriteLine($"[ERROR]: Failed to get packet from data: {receiveResult.Buffer}");
                     continue;
                 }
 
 #if DEBUG
-                Console.WriteLine($"[DEBUG]: Received packet: {packet.m_PacketType.ToString()}");
-                Console.WriteLine($"[DEBUG]: Received packet data: {packet.m_Data.Length} bytes");
+                Console.WriteLine($"[DEBUG]: Received packet: {receivedPacket.m_PacketType.ToString()}");
+                Console.WriteLine($"[DEBUG]: Received packet data: {receivedPacket.m_Data.Length} bytes");
 #endif
                 lock (_lock)
                 {
-                    string senderId = GetHashedId(result.RemoteEndPoint);
+                    PlayerID senderId = new PlayerID(receiveResult.RemoteEndPoint);
                     // Update the last activity time for the sender
                     if (m_PlayerLastActivity.ContainsKey(senderId))
                     {
@@ -72,17 +72,17 @@ public class RelayServer
                     }
                 }
 
-                switch (packet.m_PacketType)
+                switch (receivedPacket.m_PacketType)
                 {
                     case Packet.PacketType.GamePacket:
-                        await HandleGamePacket(packet as GamePacket, result.RemoteEndPoint);
+                        await HandleGamePacket(receivedPacket as GamePacket, receiveResult.RemoteEndPoint);
                         break;
                     // TODO:
                     // case Packet.PacketType.PlayerPacket:
                     //     await HandlePlayerPacket(packet as PlayerPacket, remoteEndPoint);
                     //     break;
                     default:
-                        Console.WriteLine($"[ERROR]: Unknown packet type: {packet.m_PacketType}");
+                        Console.WriteLine($"[ERROR]: Unknown packet type: {receivedPacket.m_PacketType}");
                         break;
                 }
             }
@@ -118,8 +118,8 @@ public class RelayServer
 
     private async Task ConnectNewPlayer(IPEndPoint remoteEndPoint)
     {
-        string playerId = GetHashedId(remoteEndPoint);
-        if (m_ConnectedPlayers.ContainsKey(playerId))
+        PlayerID connectingPlayerId = new PlayerID(remoteEndPoint);
+        if (m_ConnectedPlayers.ContainsKey(connectingPlayerId))
         {
             Console.WriteLine($"[ERROR]: Player already connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
             return;
@@ -132,17 +132,19 @@ public class RelayServer
 
         lock (_lock)
         {
-            m_ConnectedPlayers.Add(playerId, remoteEndPoint);
-            m_PlayerLastActivity.Add(playerId, DateTime.UtcNow);
+            m_ConnectedPlayers.Add(connectingPlayerId, remoteEndPoint);
+            m_PlayerLastActivity.Add(connectingPlayerId, DateTime.UtcNow);
         }
 
         Console.WriteLine($"[INFO]: New player connected: {remoteEndPoint.Address}:{remoteEndPoint.Port}");
-        GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
 
+        // TODO: Figure out better/nicer way to do this:
+        // --- Return Packet ---
+        GamePacket connectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
         // Add player ID + welcome message to the packet data
         using (MemoryStream ms = new MemoryStream())
         {
-            byte[] playerIdBytes = System.Text.Encoding.UTF8.GetBytes(playerId);
+            byte[] playerIdBytes = System.Text.Encoding.UTF8.GetBytes(connectingPlayerId.ToString());
             byte[] playerIdLengthBytes = BitConverter.GetBytes(playerIdBytes.Length);
             byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: You have successfully connected to the relay server!");
 
@@ -151,12 +153,33 @@ public class RelayServer
             ms.Write(welcomeMessage, 0, welcomeMessage.Length);
             connectPacket.m_Data = ms.ToArray();
         }
-
         await PacketManager.SendPacket(connectPacket, m_UdpServer, PROTOCOL_ID, remoteEndPoint);
+        // ---------------------
+
+        // --- Relay Packet ---
+        GamePacket relayConnectPacket = new GamePacket(GamePacket.OpCode.PlayerJoin); // Construct a new game packet to return
+        using (MemoryStream ms = new MemoryStream())
+        {
+            byte[] playerIdBytes = System.Text.Encoding.UTF8.GetBytes(connectingPlayerId.ToString());
+            byte[] playerIdLengthBytes = BitConverter.GetBytes(playerIdBytes.Length);
+            byte[] welcomeMessage = System.Text.Encoding.UTF8.GetBytes($"(Server) [INFO]: Another player has successfully connected to the relay server!");
+
+            ms.Write(playerIdLengthBytes, 0, playerIdLengthBytes.Length);
+            ms.Write(playerIdBytes, 0, playerIdBytes.Length);
+            ms.Write(welcomeMessage, 0, welcomeMessage.Length);
+            relayConnectPacket.m_Data = ms.ToArray();
+        }
+
+        foreach (var kvp in m_ConnectedPlayers.Where(kvp => kvp.Key != connectingPlayerId))
+        {
+            await PacketManager.SendPacket(relayConnectPacket, m_UdpServer, PROTOCOL_ID, kvp.Value);
+        }
+        //---------------------
+
     }
 
     // This does not send back a disconnect packet
-    private void DisconnectPlayer(string playerId)
+    private void DisconnectPlayer(PlayerID playerId)
     {
         if (!m_ConnectedPlayers.ContainsKey(playerId))
         {
@@ -181,25 +204,25 @@ public class RelayServer
             Console.WriteLine("[INFO]: Remaining Connected players:");
             foreach (var kvp in m_ConnectedPlayers)
             {
-                Console.WriteLine($"[INFO]: Connected player: {kvp.Key} - {kvp.Value}");
+                Console.WriteLine($"[INFO]: Connected player: {kvp.Key.ToString()} - {kvp.Value}");
             }
         }
     }
 
     private void DisconnectPlayer(IPEndPoint remoteEndPoint)
     {
-        string playerId = GetHashedId(remoteEndPoint);
+        PlayerID playerId = new PlayerID(remoteEndPoint);
         DisconnectPlayer(playerId);
     }
 
     private async Task MonitorPlayerTimeouts(TimeSpan timeoutInterval)
     {
-        try
+        while (m_IsRunning)
         {
-            while (m_IsRunning)
+            try
             {
                 await Task.Delay(1000); // Check every second
-                List<string> timedOutPlayers = new List<string>();
+                List<PlayerID> timedOutPlayers = new List<PlayerID>();
 
                 lock (_lock)
                 {
@@ -217,26 +240,14 @@ public class RelayServer
 
                 foreach (var playerId in timedOutPlayers)
                 {
-                    Console.WriteLine($"[INFO]: Player {playerId} timed out, disconnecting...");
+                    Console.WriteLine($"[INFO]: Player {playerId.ToString()} timed out, disconnecting...");
                     DisconnectPlayer(playerId);
                 }
             }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"[ERROR]: Failed to monitor player timeouts: {e.Message}");
-        }
-    }
-
-    // Input: IPEndPoint
-    // Output: Hashed ID as a string
-    private string GetHashedId(IPEndPoint endPoint) // TODO: This is called a lot, so we might want to cache the results...
-    {
-        using (var sha256 = System.Security.Cryptography.SHA256.Create())
-        {
-            byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(endPoint.ToString()));
-            string base64Hash = Convert.ToBase64String(hashBytes);
-            return base64Hash.Substring(0, 8);
+            catch (Exception e)
+            {
+                Console.WriteLine($"[ERROR]: Failed to monitor player timeouts: {e.Message}");
+            }
         }
     }
 
